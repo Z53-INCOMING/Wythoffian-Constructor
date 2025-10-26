@@ -6,12 +6,12 @@ use macroquad::prelude::*;
 const DIM: usize = 4;
 // Coxeter diagram's matrix and ringed nodes
 const COXMAT: [[u8; DIM]; DIM] = [
-    [1, 5, 2, 2,],
-    [5, 1, 3, 2,],
-    [2, 3, 1, 3,],
-    [2, 2, 3, 1,],
+    [1, 3, 2, 2,],
+    [3, 1, 3, 3,],
+    [2, 3, 1, 2,],
+    [2, 3, 2, 1,],
 ];
-const RINGS: [bool; DIM] = [true, false, false, false];
+const RINGS: [bool; DIM] = [true, false, false, true,];
 
 const SCALE: f32 = 800.;
 
@@ -137,8 +137,8 @@ async fn main() {
 
         if is_key_down(KeyCode::W) {scale *= 12./11.}
         if is_key_down(KeyCode::S) {scale *= 11./12.}
-        if is_key_down(KeyCode::A) {projectivity *= 35./36.}
-        if is_key_down(KeyCode::D) {projectivity *= 36./35.}
+        if is_key_down(KeyCode::A) {projectivity = f32::max(1.01, projectivity * 35./36.) }
+        if is_key_down(KeyCode::D) {projectivity = f32::max(1.01, projectivity * 36./35.) }
         if is_key_down(KeyCode::Left) {width += 0.1}
         if is_key_down(KeyCode::Right) {width -= 0.1}
 
@@ -146,8 +146,8 @@ async fn main() {
         clear_background(BLACK);
 
         for (a, b) in edges.iter() {
-            let a_perspective: f32 = vertices[*a].iter().skip(2).map(|n| n + projectivity).product();
-            let b_perspective: f32 = vertices[*b].iter().skip(2).map(|n| n + projectivity).product();
+            let a_perspective: f32 = vertices[*a].z+projectivity; //vertices[*a].iter().skip(2).map(|n| n + projectivity).product();
+            let b_perspective: f32 = vertices[*b].z+projectivity; //vertices[*b].iter().skip(2).map(|n| n + projectivity).product();
             draw_line(scale*vertices[*a].x/a_perspective + screen_width()/2., scale*vertices[*a].y/a_perspective + screen_height()/2., scale*vertices[*b].x/b_perspective + screen_width()/2., scale*vertices[*b].y/b_perspective + screen_height()/2., width, WHITE);
         }
 
