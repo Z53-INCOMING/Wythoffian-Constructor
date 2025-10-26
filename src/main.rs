@@ -6,10 +6,10 @@ use macroquad::prelude::*;
 const DIM: usize = 4;
 // Coxeter diagram's matrix and ringed nodes
 const COXMAT: [[u8; DIM]; DIM] = [
-    [1, 3, 2, 2],
-    [3, 1, 4, 2],
-    [2, 4, 1, 3],
-    [2, 2, 3, 1],
+    [1, 5, 2, 2,],
+    [5, 1, 3, 2,],
+    [2, 3, 1, 3,],
+    [2, 2, 3, 1,],
 ];
 const RINGS: [bool; DIM] = [true, false, false, false];
 
@@ -95,7 +95,7 @@ async fn main() {
     //edge list without self-connections
     let mut edges: Vec<(usize, usize)> = Vec::new();
     for (s, i) in fundamental_simplices.iter().zip(flag_vertex.iter()) {
-        fundamental_simplices.iter().zip(flag_vertex.iter()).filter(|(f, _)| s.compare(f) == DIM - 1).for_each(|(_, j)| {
+        fundamental_simplices.iter().zip(flag_vertex.iter()).filter(|(f, _)| s.compare(f) == DIM - 1).take(DIM).for_each(|(_, j)| {
             let (i, j) = {
                 if i < j {(*i, *j)}
                 else {(*j, *i)}
@@ -110,28 +110,45 @@ async fn main() {
     // Draw polytope to screen
     println!("rendering");
     let mut width: f32 = 2.;
-    let mut scale = SCALE;
+    let mut scale: f32 = SCALE;
+    let mut projectivity: f32 = 2.;
+    let rotation_speed: f32 = PI/2.;
     loop {
-        clear_background(BLACK);
+        // controls
+        const KEYS: [KeyCode; 10] = [
+            KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4, KeyCode::Key5, 
+            KeyCode::Key6, KeyCode::Key7, KeyCode::Key8, KeyCode::Key9, KeyCode::Key0
+        ];
+        if is_mouse_button_down(MouseButton::Left) {
+            let (dx, dy) = mouse_delta_position().into();
+            let r2 = if let Some(axis) = (0..DIM-3).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
+                Vector::ith_axis(axis+3)
+            } else {
+                Vector::z_axis()
+            }.normalize();
 
-        for (a, b) in edges.iter() {
-            let a_perspective = (vertices[*a].z + 2.)*(vertices[*a].w + 2.);
-            let b_perspective = (vertices[*b].z + 2.)*(vertices[*b].w + 2.);
-            draw_line(scale*vertices[*a].x/a_perspective + screen_width()/2., scale*vertices[*a].y/a_perspective + screen_height()/2., scale*vertices[*b].x/b_perspective + screen_width()/2., scale*vertices[*b].y/b_perspective + screen_height()/2., width, WHITE);
+            for v in vertices.iter_mut() {
+                *v = reflect(*v, Vector::x());
+                *v = reflect(*v, Vector::x() * f32::cos(rotation_speed * dx) - r2 * f32::sin(rotation_speed * dx));
+                *v = reflect(*v, Vector::y());
+                *v = reflect(*v, Vector::y() * f32::cos(rotation_speed * dy) - r2 * f32::sin(rotation_speed * dy));
+            }
         }
 
-        if is_key_down(KeyCode::Up) {scale += screen_width()/60.}
-        if is_key_down(KeyCode::Down) {scale -= screen_width()/60.}
+        if is_key_down(KeyCode::W) {scale *= 12./11.}
+        if is_key_down(KeyCode::S) {scale *= 11./12.}
+        if is_key_down(KeyCode::A) {projectivity *= 35./36.}
+        if is_key_down(KeyCode::D) {projectivity *= 36./35.}
         if is_key_down(KeyCode::Left) {width += 0.1}
         if is_key_down(KeyCode::Right) {width -= 0.1}
 
-        for v in vertices.iter_mut() {
-            *v = Matrix::new(
-                f32::cos(1./60.), 0., 0., -f32::sin(1./60.), 
-                0., f32::cos(1./60.), -f32::sin(1./60.), 0.,
-                0., f32::sin(1./60.), f32::cos(1./60.), 0.,
-                f32::sin(1./60.), 0., 0., f32::cos(1./60.),
-            ) * *v;
+        // draw
+        clear_background(BLACK);
+
+        for (a, b) in edges.iter() {
+            let a_perspective: f32 = vertices[*a].iter().skip(2).map(|n| n + projectivity).product();
+            let b_perspective: f32 = vertices[*b].iter().skip(2).map(|n| n + projectivity).product();
+            draw_line(scale*vertices[*a].x/a_perspective + screen_width()/2., scale*vertices[*a].y/a_perspective + screen_height()/2., scale*vertices[*b].x/b_perspective + screen_width()/2., scale*vertices[*b].y/b_perspective + screen_height()/2., width, WHITE);
         }
 
         next_frame().await
@@ -217,4 +234,8 @@ fn coxmat_to_name(m: [[u8; DIM]; DIM]) -> String {
     }
     name.push_str(".flag");
     name
+}
+
+fn reflect(v: Vector, m: Vector) -> Vector {
+    v - 2.* v.dot(&m) / m.magnitude_squared() * m
 }
