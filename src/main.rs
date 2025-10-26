@@ -1,16 +1,19 @@
 use std::f32::consts::PI;
-
 use nalgebra::{ArrayStorage, Const};
+use macroquad::prelude::*;
 
 // number of dimensions for polytope
-const DIM: usize = 3;
+const DIM: usize = 4;
 // Coxeter diagram's matrix and ringed nodes
 const COXMAT: [[i8; DIM]; DIM] = [
-    [1, 5, 2],
-    [5, 1, 3],
-    [2, 3, 1],
+    [1, 5, 2, 2],
+    [5, 1, 3, 2],
+    [2, 3, 1, 2],
+    [2, 2, 2, 1]
 ];
-const RINGS: [bool; DIM] = [false, false, true];
+const RINGS: [bool; DIM] = [true, false, false, true];
+
+const SCALE: f32 = 200.;
 
 type Vector = nalgebra::Matrix<f32, Const<DIM>, Const<1>, ArrayStorage<f32, DIM, 1>>;
 type Matrix = nalgebra::Matrix<f32, Const<DIM>, Const<DIM>, ArrayStorage<f32, DIM, DIM>>;
@@ -20,7 +23,8 @@ struct FundamentalSimplex {
     vertices: Matrix, // points of the actual simplex
 }
 
-fn main() {
+#[macroquad::main("wireframe")]
+async fn main() {
     // matrix for which a_ij is the dot product of vector i and vector j
     let dot_matrix: Matrix = Matrix::from_fn(
         |r, c| {
@@ -31,10 +35,10 @@ fn main() {
 
     // columns of Cholesky decomposition upper-triangular martix are normal to mirrors
     let mirrors: Matrix = dot_matrix.cholesky().expect("invalid coxeter diagram").l().transpose();
-    // Find a starting vertex of the resulting polytope
+    // Find a fundamental simplex based on the mirror planes
     let starting_simplex = FundamentalSimplex::from_mirrors(mirrors);
     
-    // start finding all the flags
+    // start finding all the other fundamental simplices
     let mut fundamental_simplices: Vec<FundamentalSimplex> = vec![starting_simplex.clone()];
 
     // algorithm state (starting simplex, current reflection)
@@ -67,29 +71,61 @@ fn main() {
     }
 
     // find polytope elements
+    // vertex list without duplicates
     let mut vertices: Vec<Vector> = Vec::new();
-    for s in fundamental_simplices {
+    let mut flag_vertex: Vec<usize> = Vec::new();
+    for s in fundamental_simplices.iter() {
         let v = s.rings_to_point(RINGS);
-        if vertices.iter().find(|f| (*f - v).magnitude_squared() < 0.0001).is_none() {
+        if let Some((i, _)) = vertices.iter().enumerate().find(|(_, f)| (*f - v).magnitude_squared() < 0.0001) {
+            flag_vertex.push(i)
+        }
+        else {
             vertices.push(v);
+            flag_vertex.push(vertices.len() - 1);
         }
     }
-    
-    print!("V = [");
-    for v in vertices.iter().take(vertices.len()-1) {
-        print!("(");
-        for r in v.iter().take(DIM-1) {
-            print!("{}, ", r);
-        }
-        print!("{}), ", v[DIM-1]);
-    }
-    let v = vertices.last().unwrap();
-    print!("(");
-    for r in v.iter().take(DIM-1) {
-        print!("{}, ", r);
-    }
-    println!("{})] ", v[DIM-1]);
 
+    //edge list without self-connections
+    let mut edges: Vec<(usize, usize)> = Vec::new();
+    for (s, i) in fundamental_simplices.iter().zip(flag_vertex.iter()) {
+        fundamental_simplices.iter().zip(flag_vertex.iter()).filter(|(f, _)| s.compare(f) == DIM - 1).for_each(|(_, j)| {
+            let (i, j) = {
+                if i < j {(*i, *j)}
+                else {(*j, *i)}
+            };
+            if i != j && !edges.contains(&(i, j)) {
+                edges.push((i, j));
+            }
+        })
+    }
+
+    println!("FINISHED COMPUTING");
+
+    let mut width: f32 = 5.;
+    let mut scale = SCALE;
+    loop {
+        clear_background(BLACK);
+
+        for (a, b) in edges.iter() {
+            draw_line(scale*vertices[*a].x/(vertices[*a].z + 2.) + screen_width()/2., scale*vertices[*a].y/(vertices[*a].z + 2.)+ screen_height()/2., scale*vertices[*b].x/(vertices[*b].z + 2.) + screen_width()/2., scale*vertices[*b].y/(vertices[*b].z + 2.) + screen_height()/2., width, WHITE);
+        }
+
+        if is_key_down(KeyCode::Up) {scale += 1.}
+        if is_key_down(KeyCode::Down) {scale -= 1.}
+        if is_key_down(KeyCode::Left) {width += 0.1}
+        if is_key_down(KeyCode::Right) {width -= 0.1}
+
+        for v in vertices.iter_mut() {
+            *v = Matrix::new(
+                f32::cos(1./60.), 0., 0., -f32::sin(1./60.), 
+                0., f32::cos(1./60.), -f32::sin(1./60.), 0., 
+                0., f32::sin(1./60.), f32::cos(1./60.), 0.,
+                f32::sin(1./60.), 0., 0., f32::cos(1./60.),
+            ) * *v;
+        }
+
+        next_frame().await
+    }
 }
 
 impl FundamentalSimplex {
@@ -98,7 +134,7 @@ impl FundamentalSimplex {
             // basically the cofactor matrix lol
             vertices: Matrix::from_fn(|r, c| {
                 (-1f32).powi(r as i32) * m.remove_row(r).remove_column(c).determinant()
-            }) 
+            })
         }
     }
     fn reflect(&self, v: Vector) -> Self {
