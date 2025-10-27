@@ -3,15 +3,16 @@ use nalgebra::{ArrayStorage, Const};
 use macroquad::prelude::*;
 
 // number of dimensions for polytope
-const DIM: usize = 4;
+const DIM: usize = 5;
 // Coxeter diagram's matrix and ringed nodes
 const COXMAT: [[u8; DIM]; DIM] = [
-    [1, 3, 2, 2,],
-    [3, 1, 3, 3,],
-    [2, 3, 1, 2,],
-    [2, 3, 2, 1,],
+    [1, 4, 2, 2, 2],
+    [4, 1, 3, 2, 2],
+    [2, 3, 1, 3, 2],
+    [2, 2, 3, 1, 3],
+    [2, 2, 2, 3, 1],
 ];
-const RINGS: [bool; DIM] = [true, false, false, true,];
+const RINGS: [bool; DIM] = [true, true, true, true, true];
 
 const SCALE: f32 = 800.;
 
@@ -113,12 +114,13 @@ async fn main() {
     let mut scale: f32 = SCALE;
     let mut projectivity: f32 = 2.;
     let rotation_speed: f32 = PI/2.;
+    let mut rotations: [f32; DIM-1] = [0.; DIM-1];
+    const KEYS: [KeyCode; 10] = [
+        KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4, KeyCode::Key5, 
+        KeyCode::Key6, KeyCode::Key7, KeyCode::Key8, KeyCode::Key9, KeyCode::Key0
+    ];
     loop {
         // controls
-        const KEYS: [KeyCode; 10] = [
-            KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4, KeyCode::Key5, 
-            KeyCode::Key6, KeyCode::Key7, KeyCode::Key8, KeyCode::Key9, KeyCode::Key0
-        ];
         if is_mouse_button_down(MouseButton::Left) {
             let (dx, dy) = mouse_delta_position().into();
             let r2 = if let Some(axis) = (0..DIM-3).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
@@ -141,6 +143,23 @@ async fn main() {
         if is_key_down(KeyCode::D) {projectivity = f32::max(1.01, projectivity * 36./35.) }
         if is_key_down(KeyCode::Left) {width += 0.1}
         if is_key_down(KeyCode::Right) {width -= 0.1}
+
+        if is_key_pressed(KeyCode::Up) {
+            if let Some(axis) = (0..DIM-1).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
+                rotations[axis] += 1.;
+            }
+        }
+        if is_key_pressed(KeyCode::Down) {
+            if let Some(axis) = (0..DIM-1).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
+                rotations[axis] -= 1.;
+            }
+        }
+        for v in vertices.iter_mut() {
+            for i in 0..DIM-1 {
+                *v = reflect(*v, Vector::ith(i, 1.));
+                *v = reflect(*v, Vector::ith(i, 1.) * f32::cos(rotation_speed / (8.*240.) * rotations[i]) - Vector::ith(i+1, 1.) * f32::sin(rotation_speed / (8.*240.) * rotations[i]));
+            }
+        }
 
         // draw
         clear_background(BLACK);
