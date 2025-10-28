@@ -1,32 +1,32 @@
 use crate::{DIM, Matrix, Vector};
 
+pub struct FlagGraph {
+    pub flags: Vec<Flag>,
+    pub edges: Vec<(usize, usize, u32)> // indices into flag list, + number of shared vertices
+}
+
 #[derive(Clone)]
 pub struct Flag {
     pub vertices: Matrix, // points of the fundamental simplex
 }
 
-impl Flag {
-    /// takes one flag and a set of mirrors, and returns all flags
-    pub fn find_all(&self, mirrors: Matrix) -> Vec<Self> {
+impl FlagGraph {
+    /// takes one flag and a set of mirrors, and returns all flags and their connections
+    pub fn generate(start_flag: Flag, mirrors: Matrix) -> Self {
         // start finding all the other fundamental simplices
-        let mut flags: Vec<Flag> = vec![self.clone()];
+        let mut flags: Vec<Flag> = vec![start_flag.clone()];
 
         // algorithm state (starting simplex, current reflection)
-        let mut stack: Vec<(Flag, usize)> = vec![(self.clone(), 0)];
+        let mut stack: Vec<(Flag, usize)> = vec![(start_flag.clone(), 0)];
         // depth-first search n-tree of potential symmetries
         'wythoffian_outer: while stack.len() > 0 {
-            /*for (i, (_, m)) in stack.iter().enumerate() {
-                if i == stack.len() - 1 {print!("{m}");}
-                else {print!("{}", m-1);}
-            }println!();*/
-
             // get flag and mirror id from top of stack
             let (base_flag, mirror) = stack.last_mut().unwrap();
             let new_flag = base_flag.reflect(mirrors.column(*mirror).into());
 
             // if this flag has been visited before, move on
             for f in flags.iter() {
-                if new_flag.compare(&f) == DIM {
+                if new_flag.compare(&f) == DIM as u32 {
                     *mirror += 1;
                     if *mirror == DIM {stack.pop();}
                     continue 'wythoffian_outer;
@@ -40,9 +40,14 @@ impl Flag {
             stack.push((new_flag, 0));
         }
 
-        flags
+        Self {
+            flags,
+            edges: Vec::new(),
+        }
     }
+}
 
+impl Flag {
     /// reflects the entire flag along some vector.
     /// the reflection fixes the hyperplane orthogonal to vector v.
     pub fn reflect(&self, v: Vector) -> Self {
@@ -64,7 +69,7 @@ impl Flag {
     }
 
     /// returns the number of vertices two simplices share
-    pub fn compare(&self, other: &Self) -> usize {
+    pub fn compare(&self, other: &Self) -> u32 {
         self.vertices.column_iter().map(|self_col| 
             if other.vertices.column_iter().find(|other_col| 
                 (self_col - other_col).magnitude_squared() < 0.00001

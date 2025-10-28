@@ -3,7 +3,7 @@ mod serialization;
 mod renderer;
 
 use flag::Flag;
-use crate::serialization::*;
+use crate::{flag::FlagGraph, serialization::*};
 use renderer::Renderer;
 
 use std::{f32::consts::PI};
@@ -47,7 +47,9 @@ async fn main() {
 
         // find mirrors, then one flag from those. use these to generate all fundamental flags
         let mirrors: Matrix = dot_matrix.cholesky().expect("invalid coxeter diagram").l().transpose();
-        let flags = Flag::from_mirrors(mirrors).find_all(mirrors);
+        let start_flag = Flag::from_mirrors(mirrors);
+
+        let flags = FlagGraph::generate(start_flag, mirrors).flags;
 
         // cache the result
         save_flags_to_file(coxmat_to_name(COXMAT), &flags).expect("couldn't cache file");
@@ -76,7 +78,7 @@ async fn main() {
     //edge list without self-connections
     let mut edges: Vec<(usize, usize)> = Vec::new();
     for (s, i) in flags.iter().zip(flag_vertex.iter()) {
-        flags.iter().zip(flag_vertex.iter()).filter(|(f, _)| s.compare(f) == DIM - 1).take(DIM).for_each(|(_, j)| {
+        flags.iter().zip(flag_vertex.iter()).filter(|(f, _)| s.compare(f) == DIM as u32 - 1).take(DIM).for_each(|(_, j)| {
             let (i, j) = {
                 if i < j {(*i, *j)}
                 else {(*j, *i)}
