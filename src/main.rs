@@ -1,9 +1,7 @@
 mod flag;
-mod serialization;
 mod renderer;
 
-use flag::Flag;
-use crate::{flag::FlagGraph, serialization::*};
+use flag::{Flag, FlagGraph};
 use renderer::Renderer;
 
 use std::{f32::consts::PI};
@@ -30,9 +28,9 @@ type Matrix = nalgebra::Matrix<f32, Const<DIM>, Const<DIM>, ArrayStorage<f32, DI
 #[macroquad::main("wireframe")]
 async fn main() {
     // attempt to load flags from cached result. otherwise, calculate them
-    let flags = if let Ok(file) = std::fs::File::open(serialization::coxmat_to_name(COXMAT)) {
-        println!("found cached flag file");
-        serialization::load_flag_file(file).flags
+    let flags = if let Ok(graph) = FlagGraph::deserialize(coxmat_to_name(COXMAT)) {
+        println!("cached flag file found, loading...");
+        graph.flags
     } else {
         println!("no cached flag file found, generating...");
 
@@ -52,7 +50,7 @@ async fn main() {
         let flag_graph = FlagGraph::generate(start_flag, mirrors);
 
         // cache the result
-        save_flags_to_file(coxmat_to_name(COXMAT), &flag_graph).expect("couldn't cache file");
+        flag_graph.serialize(coxmat_to_name(COXMAT)).expect("couldn't cache file");
 
         flag_graph.flags
     };
@@ -98,4 +96,17 @@ async fn main() {
         renderer.draw();
         macroquad::prelude::next_frame().await
     }
+}
+
+pub fn coxmat_to_name(m: [[u8; DIM]; DIM]) -> String {
+    let mut name = String::new();
+    for r in 0..DIM {
+        for c in 0..r+1 {
+            let n = m[r][c];
+            let c = char::from_digit(n as u32, 36).expect("invalid CD (too big)");
+            name.push(c);
+        }
+    }
+    name.push_str(".flag");
+    name
 }

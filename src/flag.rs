@@ -1,4 +1,5 @@
 use crate::{DIM, Matrix, Vector};
+use std::io::{Read, Write};
 
 pub struct FlagGraph {
     pub flags: Vec<Flag>,
@@ -44,6 +45,40 @@ impl FlagGraph {
             flags,
             edges: Vec::new(),
         }
+    }
+
+    pub fn serialize(&self, filename: String) -> Result<(), std::io::Error> {
+        let mut f = std::fs::File::create_new(filename)?;
+        for flag in self.flags.iter() {
+            let vertices = flag.vertices;
+            for v in vertices.iter() {
+                write!(f, "{} ", *v)?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+
+    pub fn deserialize(filename: String) -> Result<Self, std::io::Error> {
+        // open input file
+        let mut f = std::fs::File::open(filename)?;
+        // get text from file
+        let mut string: String = String::new();
+        f.read_to_string(&mut string)?;
+        // input parsing iterator
+        let mut nums = string
+            .split(|c: char| c.is_whitespace())     // isolate each number
+            .flat_map(|n| n.parse::<f32>());  // parse into numbers
+
+        // convert parsed input numbers to vertices of flags/simplices
+        let mut flag_graph: FlagGraph = FlagGraph {flags: Vec::new(), edges: Vec::new()};
+        for c in std::iter::from_fn(move || {
+            let chunk: Vec<f32> = nums.by_ref().take(DIM*DIM).collect(); // take DIM^2 at a time
+            if chunk.is_empty() {None} else {Some(chunk)}
+        }) {
+            flag_graph.flags.push(Flag { vertices: Matrix::from_vec(c) })
+        }
+        Ok(flag_graph)
     }
 }
 
