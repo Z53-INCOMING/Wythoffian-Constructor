@@ -1,9 +1,9 @@
 use crate::{DIM, Matrix};
-use crate::flag::Flag;
+use crate::flag::{Flag, FlagGraph};
 
 use std::io::{Read, Write};
 
-pub fn load_flag_file(mut file: std::fs::File) -> Vec<Flag> {
+pub fn load_flag_file(mut file: std::fs::File) -> FlagGraph {
     // parse numbers
     let mut string: String = String::new();
     file.read_to_string(&mut string).unwrap();
@@ -11,20 +11,20 @@ pub fn load_flag_file(mut file: std::fs::File) -> Vec<Flag> {
         .split(|c: char| c.is_whitespace())     // isolate each number
         .flat_map(|n| n.parse::<f32>());  // parse into numbers
 
-    // convert this data into the vertices of the simplices
-    let mut fundamental_simplices: Vec<Flag> = Vec::new();
+    // convert this data into the vertices of the flags/simplices
+    let mut flag_graph: FlagGraph = FlagGraph {flags: Vec::new(), edges: Vec::new()};
     for c in std::iter::from_fn(move || {
         let chunk: Vec<f32> = nums.by_ref().take(DIM*DIM).collect(); // take DIM^2 at a time
         if chunk.is_empty() {None} else {Some(chunk)}
     }) {
-        fundamental_simplices.push(Flag { vertices: Matrix::from_vec(c) })
+        flag_graph.flags.push(Flag { vertices: Matrix::from_vec(c) })
     }
-    fundamental_simplices
+    flag_graph
 }
 
-pub fn save_flags_to_file(filename: String, flags: &Vec<Flag>) -> Result<(), std::io::Error> {
+pub fn save_flags_to_file(filename: String, flag_graph: &FlagGraph) -> Result<(), std::io::Error> {
     let mut f = std::fs::File::create_new(filename)?;
-    for flag in flags.iter() {
+    for flag in flag_graph.flags.iter() {
         let vertices = flag.vertices;
         for v in vertices.iter() {
             write!(f, "{} ", *v).unwrap();

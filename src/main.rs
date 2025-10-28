@@ -32,7 +32,7 @@ async fn main() {
     // attempt to load flags from cached result. otherwise, calculate them
     let flags = if let Ok(file) = std::fs::File::open(serialization::coxmat_to_name(COXMAT)) {
         println!("found cached flag file");
-        serialization::load_flag_file(file)
+        serialization::load_flag_file(file).flags
     } else {
         println!("no cached flag file found, generating...");
 
@@ -49,12 +49,12 @@ async fn main() {
         let mirrors: Matrix = dot_matrix.cholesky().expect("invalid coxeter diagram").l().transpose();
         let start_flag = Flag::from_mirrors(mirrors);
 
-        let flags = FlagGraph::generate(start_flag, mirrors).flags;
+        let flag_graph = FlagGraph::generate(start_flag, mirrors);
 
         // cache the result
-        save_flags_to_file(coxmat_to_name(COXMAT), &flags).expect("couldn't cache file");
+        save_flags_to_file(coxmat_to_name(COXMAT), &flag_graph).expect("couldn't cache file");
 
-        flags
+        flag_graph.flags
     };
     println!("{} flags computed", flags.len());
     
