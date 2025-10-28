@@ -30,7 +30,7 @@ type Matrix = nalgebra::Matrix<f32, Const<DIM>, Const<DIM>, ArrayStorage<f32, DI
 #[macroquad::main("wireframe")]
 async fn main() {
     // attempt to load flags from cached result. otherwise, calculate them
-    let flags = if let Ok(mut file) = std::fs::File::open(serialization::coxmat_to_name(COXMAT)) {
+    let flags = if let Ok(file) = std::fs::File::open(serialization::coxmat_to_name(COXMAT)) {
         println!("found cached flag file");
         serialization::load_flag_file(file)
     } else {
@@ -88,7 +88,7 @@ async fn main() {
     }
     println!("{} edges computed", edges.len());
 
-    // Draw polytope to screen
+    // Start renderer
     println!("rendering");
     let mut renderer = Renderer::new(vertices, edges);
     loop {
