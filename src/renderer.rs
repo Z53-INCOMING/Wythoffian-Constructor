@@ -35,7 +35,7 @@ impl Renderer {
         clear_background(BLACK);
 
         for (a, b) in self.edges.iter() {
-            let subdivisions = 12;
+            let subdivisions = 6;
             for i in 0..subdivisions {
                 let a_perspective: f32 = f32::lerp(self.vertices[*a].z, self.vertices[*b].z, (i as f32) / (subdivisions as f32)) + self.z_dist; 
                 let b_perspective: f32 = f32::lerp(self.vertices[*a].z, self.vertices[*b].z, ((i + 1) as f32) / (subdivisions as f32)) + self.z_dist;
@@ -57,7 +57,7 @@ impl Renderer {
                         r: 1.0,
                         g: 1.0,
                         b: 1.0,
-                        a: (1.0 - clamp(average_z * 2.0 + 0.5, 0.0, 1.0)) * (1.0 - clamp(f32::abs(average_off_axis) * 2.0, 0.0, 1.0))
+                        a: (1.0 - clamp(average_z * 2.0 + 0.5, 0.0, 1.0)) * (1.0 - clamp(f32::abs(average_off_axis) * 1.25, 0.0, 1.0))
                     }
                 );
             }
@@ -66,7 +66,7 @@ impl Renderer {
 
     pub fn handle_controls(&mut self) {
         // controls
-        if is_mouse_button_down(MouseButton::Left) {
+        if is_mouse_button_down(MouseButton::Left) || is_mouse_button_down(MouseButton::Middle) {
             let (dx, dy) = mouse_delta_position().into();
             let r2 = if let Some(axis) = (0..DIM-3).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
                 Vector::ith_axis(axis+3)
@@ -82,12 +82,25 @@ impl Renderer {
             }
         }
 
-        if is_key_down(KeyCode::W) {self.zoom *= 12./11.}
-        if is_key_down(KeyCode::S) {self.zoom *= 11./12.}
-        if is_key_down(KeyCode::A) {self.z_dist = f32::max(1.01, self.z_dist * 35./36.) }
-        if is_key_down(KeyCode::D) {self.z_dist = f32::max(1.01, self.z_dist * 36./35.) }
-        if is_key_down(KeyCode::Left) {self.line_width += 0.1}
-        if is_key_down(KeyCode::Right) {self.line_width -= 0.1}
+        let scroll = mouse_wheel().1;
+        
+        if scroll > 0.0 {
+            if is_key_down(KeyCode::LeftControl) {
+                self.zoom *= 12.0 / 11.0;
+            } else if is_key_down(KeyCode::LeftShift) {
+                self.line_width += 0.1;
+            } else {
+                self.z_dist = f32::max(1.01, self.z_dist * 35.0/36.0)
+            }
+        } else if scroll < 0.0 {
+            if is_key_down(KeyCode::LeftControl) {
+                self.zoom *= 11.0 / 12.0;
+            } else if is_key_down(KeyCode::LeftShift) {
+                self.line_width -= 0.1;
+            } else {
+                self.z_dist = f32::max(1.01, self.z_dist * 36.0/35.0)
+            }
+        }
 
         if is_key_pressed(KeyCode::Up) {
             if let Some(axis) = (0..DIM-1).into_iter().map(|i| is_key_down(KEYS[i])).position(|b| b) {
