@@ -9,14 +9,15 @@ use nalgebra::{ArrayStorage, Const};
 
 // -- CONFIG --
 // number of dimensions for polytope
-const DIM: usize = 3;
+const DIM: usize = 4;
 // Coxeter diagram's matrix and ringed nodes
 const COXMAT: [[u8; DIM]; DIM] = [
-    [1, 3, 2],
-    [3, 1, 3],
-    [2, 3, 1],
+    [1, 3, 2, 2],
+    [3, 1, 3, 2],
+    [2, 3, 1, 3],
+    [2, 2, 3, 1]
 ];
-const RINGS: [bool; DIM] = [true, false, true];
+const RINGS: [bool; DIM] = [true, false, true, false];
 
 
 // special types used throughout the code
